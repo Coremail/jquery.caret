@@ -121,10 +121,6 @@
      * @see http://stackoverflow.com/questions/263743/how-to-get-cursor-position-in-textarea/263796#263796
      */
     var _getCaret = function(input) {
-        if (!input) {
-            return undefined;
-        }
-
         // Mozilla, et al.
         if (_support.setSelectionRange) {
             return _getCaretW3(input);
@@ -133,12 +129,26 @@
         else if (_support.createTextRange) {
             return _getCaretIE(input);
         }
-
-        return undefined;
     };
 
     var _setCaretW3 = function(input, pos) {
-        input.setSelectionRange(pos, pos);
+        // content-editable body
+        // https://stackoverflow.com/a/6249440/5698182
+        if (input.tagName.toLowerCase() === 'body') {
+            var doc = input.ownerDocument;
+            input.focus();
+            var range = doc.createRange();
+            var sel = doc.getSelection();
+
+            range.setStart(input, pos);
+            range.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }
+        // input, textarea
+        else {
+            input.setSelectionRange(pos, pos);
+        }
     };
 
     var _setCaretIE = function(input, pos) {
@@ -159,7 +169,7 @@
         pos = _getIndex(input, pos);
 
         // Mozilla, et al.
-        if (_support.setSelectionRange) {
+        if (_support.setSelectionRange) { // IE >= 9
             _setCaretW3(input, pos);
         }
         // IE
@@ -421,11 +431,21 @@
          * </pre>
          */
         caret: function() {
-            var $inputs = this.filter('input, textarea');
+            var $inputs = this.filter('input, textarea, body');
+            var input = $inputs.get(0);
+
+            // ignore
+            if (!input) {
+                return;
+            }
+
+            // ignore body when it is not content editable
+            if (input.tagName.toLowerCase() === 'body' && !(input.contentEditable === 'true' || input.contentEditable === true || input.ownerDocument.designMode === 'on')) {
+                return;
+            }
 
             // getCaret()
             if (arguments.length === 0) {
-                var input = $inputs.get(0);
                 return _getCaret(input);
             }
             // setCaret(position)
